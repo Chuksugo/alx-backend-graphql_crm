@@ -1,5 +1,5 @@
 import graphene
-from crm.schema import CRMQuery   # <-- import CRMQuery from crm app schema
+from crm.schema import CRMQuery   
 
 class Query(CRMQuery, graphene.ObjectType):
     pass   # No need to add fields here unless required
