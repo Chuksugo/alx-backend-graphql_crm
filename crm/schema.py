@@ -1,10 +1,14 @@
 import re
 import graphene
 from graphene_django import DjangoObjectType
-from .models import Customer, Product, Order
+from graphene_django.filter import DjangoFilterConnectionField
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+
+from .models import Customer, Product, Order
+from .filters import CustomerFilter, ProductFilter, OrderFilter
+
 
 # ====================
 # GraphQL Types
@@ -12,19 +16,25 @@ from django.utils import timezone
 class CustomerType(DjangoObjectType):
     class Meta:
         model = Customer
-        fields = ("id", "name", "email", "phone")
+        fields = ("id", "name", "email", "phone", "created_at")
+        interfaces = (graphene.relay.Node,)
+        filterset_class = CustomerFilter
 
 
 class ProductType(DjangoObjectType):
     class Meta:
         model = Product
         fields = ("id", "name", "price", "stock")
+        interfaces = (graphene.relay.Node,)
+        filterset_class = ProductFilter
 
 
 class OrderType(DjangoObjectType):
     class Meta:
         model = Order
         fields = ("id", "customer", "products", "total_amount", "order_date")
+        interfaces = (graphene.relay.Node,)
+        filterset_class = OrderFilter
 
 
 # ====================
@@ -40,7 +50,6 @@ class CustomerInput(graphene.InputObjectType):
 # Mutations
 # ====================
 
-# ---- Create Customer ----
 class CreateCustomer(graphene.Mutation):
     class Arguments:
         input = CustomerInput(required=True)
@@ -49,11 +58,9 @@ class CreateCustomer(graphene.Mutation):
     message = graphene.String()
 
     def mutate(self, info, input):
-        # Unique email check
         if Customer.objects.filter(email=input.email).exists():
             raise Exception("Email already exists")
 
-        # Phone validation if provided
         if input.phone:
             if not re.match(r'^(\+\d{10,15}|\d{3}-\d{3}-\d{4})$', input.phone):
                 raise Exception("Invalid phone format. Use +1234567890 or 123-456-7890")
@@ -61,11 +68,9 @@ class CreateCustomer(graphene.Mutation):
         customer = Customer(name=input.name, email=input.email, phone=input.phone)
         customer.full_clean()
         customer.save()
-
         return CreateCustomer(customer=customer, message="Customer created successfully")
 
 
-# ---- Bulk Create Customers ----
 class BulkCreateCustomers(graphene.Mutation):
     class Arguments:
         input = graphene.List(CustomerInput, required=True)
@@ -90,14 +95,12 @@ class BulkCreateCustomers(graphene.Mutation):
                 obj.full_clean()
                 obj.save()
                 created.append(obj)
-
             except Exception as e:
                 errors.append(f"Row {idx}: {str(e)}")
 
         return BulkCreateCustomers(customers=created, errors=errors)
 
 
-# ---- Create Product ----
 class CreateProduct(graphene.Mutation):
     class Arguments:
         name = graphene.String(required=True)
@@ -118,7 +121,6 @@ class CreateProduct(graphene.Mutation):
         return CreateProduct(product=product, message="Product created successfully")
 
 
-# ---- Create Order ----
 class CreateOrder(graphene.Mutation):
     class Arguments:
         customer_id = graphene.ID(required=True)
@@ -129,13 +131,11 @@ class CreateOrder(graphene.Mutation):
     message = graphene.String()
 
     def mutate(self, info, customer_id, product_ids, order_date=None):
-        # Validate customer
         try:
             customer = Customer.objects.get(id=customer_id)
         except Customer.DoesNotExist:
             raise Exception("Invalid customer ID")
 
-        # Validate product list
         if not product_ids:
             raise Exception("At least one product must be selected")
 
@@ -143,13 +143,12 @@ class CreateOrder(graphene.Mutation):
         if len(products) != len(product_ids):
             raise Exception("One or more product IDs are invalid")
 
-        # Create order
         order = Order.objects.create(
             customer=customer,
             order_date=order_date or timezone.now()
         )
         order.products.set(products)
-        order.calculate_total()  # assumes you implemented calculate_total in model
+        order.calculate_total()
         order.save()
 
         return CreateOrder(order=order, message="Order created successfully")
@@ -159,18 +158,28 @@ class CreateOrder(graphene.Mutation):
 # CRM Query + Mutation
 # ====================
 class Query(graphene.ObjectType):
-    all_customers = graphene.List(CustomerType)
-    all_products = graphene.List(ProductType)
-    all_orders = graphene.List(OrderType)
+    all_customers = DjangoFilterConnectionField(CustomerType, filterset_class=CustomerFilter, order_by=graphene.List(of_type=graphene.String))
+    all_products = DjangoFilterConnectionField(ProductType, filterset_class=ProductFilter, order_by=graphene.List(of_type=graphene.String))
+    all_orders = DjangoFilterConnectionField(OrderType, filterset_class=OrderFilter, order_by=graphene.List(of_type=graphene.String))
 
-    def resolve_all_customers(root, info):
-        return Customer.objects.all()
+    # Sorting logic
+    def resolve_all_customers(root, info, order_by=None, **kwargs):
+        qs = Customer.objects.all()
+        if order_by:
+            qs = qs.order_by(*order_by)
+        return qs
 
-    def resolve_all_products(root, info):
-        return Product.objects.all()
+    def resolve_all_products(root, info, order_by=None, **kwargs):
+        qs = Product.objects.all()
+        if order_by:
+            qs = qs.order_by(*order_by)
+        return qs
 
-    def resolve_all_orders(root, info):
-        return Order.objects.all()
+    def resolve_all_orders(root, info, order_by=None, **kwargs):
+        qs = Order.objects.all()
+        if order_by:
+            qs = qs.order_by(*order_by)
+        return qs
 
 
 class Mutation(graphene.ObjectType):
