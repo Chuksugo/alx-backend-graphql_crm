@@ -129,7 +129,7 @@ class CreateOrder(graphene.Mutation):
 # ====================
 # CRM Query + Mutation
 # ====================
-class CRMQuery(graphene.ObjectType):
+class Query(graphene.ObjectType):
     all_customers = graphene.List(CustomerType)
     all_products = graphene.List(ProductType)
     all_orders = graphene.List(OrderType)
