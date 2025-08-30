@@ -1,19 +1,25 @@
-import os
+# crm/tasks.py
 from celery import shared_task
-from django.utils import timezone
-from crm.models import Customer, Order
+from datetime import datetime
+import requests
 
 @shared_task
 def generate_crm_report():
-    total_customers = Customer.objects.count()
-    total_orders = Order.objects.count()
-    total_revenue = Order.objects.aggregate(total_amount_sum=models.Sum("totalamount"))["total_amount_sum"] or 0
+    """
+    Generate a CRM report and log details into /tmp/crm_report_log.txt
+    """
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    timestamp = timezone.now().strftime("%Y-%m-%d %H:%M:%S")
-    report = f"{timestamp} - Report: {total_customers} customers, {total_orders} orders, {total_revenue} revenue\n"
+    # Example external API call (you can adjust/remove this)
+    try:
+        response = requests.get("https://jsonplaceholder.typicode.com/todos/1")
+        data = response.json()
+    except Exception as e:
+        data = {"error": str(e)}
 
-    log_file = "/tmp/crm_report_log.txt"
-    with open(log_file, "a") as f:
-        f.write(report)
+    log_entry = f"[{timestamp}] CRM Report Generated: {data}\n"
 
-    return report
+    with open("/tmp/crm_report_log.txt", "a") as log_file:
+        log_file.write(log_entry)
+
+    return log_entry
