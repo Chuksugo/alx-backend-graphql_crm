@@ -8,6 +8,10 @@ from django.utils import timezone
 
 from .models import Customer, Product, Order
 from .filters import CustomerFilter, ProductFilter, OrderFilter
+from .models import Product
+from graphene_django.types import DjangoObjectType
+
+
 
 
 # ====================
@@ -187,3 +191,34 @@ class Mutation(graphene.ObjectType):
     bulk_create_customers = BulkCreateCustomers.Field()
     create_product = CreateProduct.Field()
     create_order = CreateOrder.Field()
+
+
+class ProductType(DjangoObjectType):
+    class Meta:
+        model = Product
+
+
+class UpdateLowStockProducts(graphene.Mutation):
+    class Arguments:
+        pass  # no arguments needed
+
+    updated_products = graphene.List(ProductType)
+    message = graphene.String()
+
+    def mutate(self, info):
+        low_stock_products = Product.objects.filter(stock__lt=10)
+        updated = []
+        for product in low_stock_products:
+            product.stock += 10
+            product.save()
+            updated.append(product)
+
+        return UpdateLowStockProducts(
+            updated_products=updated,
+            message=f"{len(updated)} products restocked at {timezone.now()}",
+        )
+
+
+class Mutation(graphene.ObjectType):
+    # ✅ keep your other mutations here...
+    update_low_stock_products = UpdateLowStockProducts.Field()
