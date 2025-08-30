@@ -64,7 +64,6 @@
      /tmp/crm_report_log.txt
      ```
 
----
 
-✅ Follow these steps to fully set up the CRM project with scheduled Celery tasks.
+verify crm/README.md includes all setup steps.
 
