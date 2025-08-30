@@ -1,3 +1,5 @@
+verify crm/README.md includes all setup steps.
+
 # CRM - Celery Report Setup
 
 This README describes how to install Redis and dependencies, run migrations, start Celery worker and Celery Beat, and verify the weekly CRM report logs for the `crm` app.
@@ -159,3 +161,4 @@ Then check `/tmp/crm_report_log.txt` for an immediate entry.
 ---
 
 **End of CRM Celery Report Setup**
+
