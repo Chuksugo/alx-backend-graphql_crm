@@ -1,5 +1,7 @@
+INSTALLED_APPS = [
+    "django_crontab",
+]
 
-# Cron jobs
 CRONJOBS = [
     ('*/5 * * * *', 'crm.cron.log_crm_heartbeat'),
 ]
