@@ -8,8 +8,6 @@ from django.utils import timezone
 
 from .models import Customer, Product, Order
 from .filters import CustomerFilter, ProductFilter, OrderFilter
-from graphene_django.types import DjangoObjectType
-
 
 
 
